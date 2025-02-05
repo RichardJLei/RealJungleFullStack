@@ -22,7 +22,7 @@
 
 ## 4. Technology Stack
 
-- **Database:** PostgreSQL. Use SQLAlchemy for sync and async operations.
+- **Database:** PostgreSQL. Use SQLAlchemy for sync and async operations. Async operations are preferred.
 - **Backend Framework:** FastAPI.
 - **Frontend Framework:** Refine React Framework.
 - **Schema middleware Framework:** Retool.
