@@ -1,14 +1,11 @@
 import json
 import os
-import psycopg2
 from dotenv import load_dotenv
 from datetime import datetime
+from database import get_db_connection
 
 # Load environment variables
 load_dotenv()
-
-def get_db_connection():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
 
 def load_categories(file_path):
     with open(file_path) as f:

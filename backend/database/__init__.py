@@ -2,5 +2,6 @@
 
 # Add explicit exports
 from .models import BlogPost, Base
+from .core import get_db_connection, get_async_db_connection
 
-__all__ = ["BlogPost", "Base"] 
+__all__ = ["get_db_connection", "get_async_db_connection"] 
