@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+from typing import List, Dict, Any
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.core import get_async_session
@@ -7,6 +7,12 @@ from database.core import get_async_session
 from .dependencies.access_control import admin_access, regular_user_access
 import logging
 from sqlalchemy import text
+from api.dependencies.pagination import get_pagination_params
+from database.models import BlogPost
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import select, func
+from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import ProgrammingError
 
 router = APIRouter(
     prefix="/blog-post-sql",
@@ -14,13 +20,14 @@ router = APIRouter(
     responses={404: {"description": "Not found"}}
 )
 
-class BlogPost(BaseModel):
+class BlogPostResponse(BaseModel):
     id: int
     title: str
     content: str
 
 class BlogPostList(BaseModel):
-    posts: List[BlogPost]
+    data: List[BlogPostResponse]
+    total: int
 
 logger = logging.getLogger(__name__)
 
@@ -29,20 +36,57 @@ logger = logging.getLogger(__name__)
     response_model=BlogPostList,
     dependencies=[Depends(regular_user_access)]  # Only require basic access
 )
-async def get_blog_posts(session: AsyncSession = Depends(get_async_session)):
+async def get_blog_posts(
+    pagination: Dict[str, Any] = Depends(get_pagination_params),
+    db: AsyncSession = Depends(get_async_session)
+):
     """
-    Retrieve list of blog posts from PostgreSQL database
-    
-    Returns:
-        BlogPostList: List of blog post objects with id, title, and content
+    Get paginated blog posts with sorting (async version)
     """
     try:
-        result = await session.execute(text("SELECT id, title, content FROM blog_posts"))
-        posts = result.mappings().all()
-        return {"posts": posts}
+        # Proper ORM-style select
+        query = select(BlogPost)
+        
+        if pagination["order_by"]:
+            query = query.order_by(text(pagination["order_by"]))
+        
+        # Execute paginated query
+        result = await db.execute(
+            query.offset(pagination["skip"]).limit(pagination["limit"])
+        )
+        posts = result.scalars().all()
+        
+        # Get total count
+        total_result = await db.execute(select(func.count()).select_from(BlogPost))
+        total = total_result.scalar()
+
+        return {
+            "data": [BlogPostResponse(**post.__dict__) for post in posts],
+            "total": total
+        }
+    except ProgrammingError as pe:
+        logger.error(f"Database query error: {str(pe)}")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "message": "Invalid query parameters",
+                    "statusCode": 400,
+                    "errors": [str(pe)]
+                }
+            }
+        )
     except Exception as e:
-        logger.error(f"Database error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "message": "Internal server error",
+                    "statusCode": 500
+                }
+            }
+        )
 
 @router.get("/test-deps")
 async def test_dependencies(
