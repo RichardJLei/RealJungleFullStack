@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from os.path import abspath, dirname
+import os
 
 # Correct path resolution for Windows
 backend_dir = Path(__file__).resolve().parent.parent
@@ -35,6 +36,7 @@ target_metadata = None
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+config.set_main_option("sqlalchemy.url", os.getenv("ASYNC_SQLALCHEMY_URL"))
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -67,13 +69,13 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = get_engine()
+    connectable = create_engine(settings.SYNC_DATABASE_URL)
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=Base.metadata,
-            url=settings.DATABASE_URL,
+            url=settings.SYNC_DATABASE_URL
             compare_type=True,
             compare_server_default=True
         )

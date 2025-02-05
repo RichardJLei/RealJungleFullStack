@@ -1,16 +1,35 @@
 import os
-import psycopg2
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from core.config import settings
 
 # Load environment variables once
 load_dotenv()
 
-def get_db_connection():
-    """Create and return a new database connection using DATABASE_URL from env"""
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
+# Async engine and session
+async_engine = create_async_engine(
+    settings.ASYNC_DATABASE_URL,
+    pool_size=20,
+    max_overflow=10
+)
 
-async def get_async_db_connection():
-    """Create and return an async database connection"""
-    # For async support (if using asyncpg)
-    import asyncpg
-    return await asyncpg.connect(os.getenv("DATABASE_URL")) 
+AsyncSessionLocal = sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+# Sync engine for migrations
+sync_engine = create_engine(settings.SYNC_DATABASE_URL)
+
+# Sync connection (Migrations/scripts)
+def get_sync_connection():
+    """Sync connection using psycopg2"""
+    import psycopg2
+    return psycopg2.connect(os.getenv("SYNC_DATABASE_URL"))
+
+async def get_async_session() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        yield session 

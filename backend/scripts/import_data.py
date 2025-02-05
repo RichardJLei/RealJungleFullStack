@@ -2,7 +2,7 @@ import json
 import os
 from dotenv import load_dotenv
 from datetime import datetime
-from database import get_db_connection
+from database import get_sync_connection
 
 # Load environment variables
 load_dotenv()
@@ -11,7 +11,7 @@ def load_categories(file_path):
     with open(file_path) as f:
         categories = json.load(f)
     
-    conn = get_db_connection()
+    conn = get_sync_connection()
     cur = conn.cursor()
     
     inserted = 0
@@ -34,7 +34,7 @@ def load_blog_posts(file_path):
     with open(file_path) as f:
         posts = json.load(f)
     
-    conn = get_db_connection()
+    conn = get_sync_connection()
     cur = conn.cursor()
     
     inserted = 0
