@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import ProgrammingError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from datetime import datetime
 
 router = APIRouter(
     prefix="/blog-post-sql",
@@ -55,11 +56,44 @@ async def get_blog_posts(
             if not field:
                 continue
                 
+            value = f["value"]
+            
+            # Basic comparisons
             if f["operator"] == "eq":
-                base_query = base_query.where(field == f["value"])
+                base_query = base_query.where(field == value)
+            elif f["operator"] == "ne":
+                base_query = base_query.where(field != value)
+            elif f["operator"] == "lt":
+                base_query = base_query.where(field < value)
+            elif f["operator"] == "lte":
+                base_query = base_query.where(field <= value)
+            elif f["operator"] == "gt":
+                base_query = base_query.where(field > value)
+            elif f["operator"] == "gte":
+                base_query = base_query.where(field >= value)
+            
+            # String operations
             elif f["operator"] == "contains":
-                base_query = base_query.where(field.ilike(f"%{f['value']}%"))
-            # Add other operators as needed
+                base_query = base_query.where(field.ilike(f"%{value}%"))
+            elif f["operator"] == "ncontains":
+                base_query = base_query.where(~field.ilike(f"%{value}%"))
+            elif f["operator"] == "startswith":
+                base_query = base_query.where(field.ilike(f"{value}%"))
+            elif f["operator"] == "nstartswith":
+                base_query = base_query.where(~field.ilike(f"{value}%"))
+            elif f["operator"] == "endswith":
+                base_query = base_query.where(field.ilike(f"%{value}"))
+            elif f["operator"] == "nendswith":
+                base_query = base_query.where(~field.ilike(f"%{value}"))
+            
+            # Add type conversion for non-string fields
+            try:
+                if str(field.type) in ('INTEGER', 'BIGINT', 'FLOAT'):
+                    value = float(value)
+                elif str(field.type) == 'DATETIME':
+                    value = datetime.fromisoformat(value)
+            except ValueError:
+                continue
 
         # Get total count from base query
         count_result = await db.execute(

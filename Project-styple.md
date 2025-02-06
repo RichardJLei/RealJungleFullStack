@@ -1,7 +1,7 @@
 # Project Style Document
 
 ## 1. DRY (Don't Repeat Yourself)
-
+- **Check**  .Project-structure.md before adding new functions, services, or modules.
 - **Reuse** existing services/modules whenever possible.
 - **Notify** if unsure whether a service is available.
 - **Create new files only when:**
