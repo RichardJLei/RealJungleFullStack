@@ -6,8 +6,8 @@ from database.core import get_async_session
 # Import from dependencies module
 from .dependencies.access_control import admin_access, regular_user_access
 import logging
-from sqlalchemy import text
-from api.dependencies.pagination import get_pagination_params
+from sqlalchemy import text, and_
+from api.dependencies.pagination import get_pagination_params, pagination_params, refine_filter_parser
 from database.models import BlogPost
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import select, func
@@ -40,17 +40,27 @@ logger = logging.getLogger(__name__)
 )
 async def get_blog_posts(
     pagination: Dict[str, Any] = Depends(get_pagination_params),
+    filters: List[Dict] = Depends(refine_filter_parser),
     db: AsyncSession = Depends(get_async_session)
 ):
     """
     Get paginated blog posts with sorting (async version)
     """
     try:
-        # Base query with filters/sorting (no pagination)
         base_query = select(BlogPost)
-        if pagination["order_by"]:
-            base_query = base_query.order_by(text(pagination["order_by"]))
         
+        # Apply filters
+        for f in filters:
+            field = getattr(BlogPost, f["field"], None)
+            if not field:
+                continue
+                
+            if f["operator"] == "eq":
+                base_query = base_query.where(field == f["value"])
+            elif f["operator"] == "contains":
+                base_query = base_query.where(field.ilike(f"%{f['value']}%"))
+            # Add other operators as needed
+
         # Get total count from base query
         count_result = await db.execute(
             select(func.count()).select_from(base_query.alias())
@@ -112,3 +122,27 @@ async def get_blog_post(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     return post 
+
+def read_blog_posts(skip: int = 0, limit: int = 10, filters: dict = None):
+    db = next(get_async_session())
+    
+    query = db.query(BlogPost)
+    
+    # Add filter conditions
+    if filters:
+        filter_conditions = []
+        field = getattr(BlogPost, filters["field"], None)
+        
+        if field is not None:
+            if filters["operator"] == "eq":
+                filter_conditions.append(field == filters["value"])
+            elif filters["operator"] == "contains":
+                filter_conditions.append(field.ilike(f"%{filters['value']}%"))
+            # Add more operators as needed
+        
+        if filter_conditions:
+            query = query.filter(and_(*filter_conditions))
+    
+    # Existing pagination
+    print("Received filters:", filters)  # Should show your filter params
+    return query.offset(skip).limit(limit).all() 
