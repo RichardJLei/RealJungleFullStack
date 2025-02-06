@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import ProgrammingError
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter(
     prefix="/blog-post-sql",
@@ -33,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 @router.get(
     "/", 
-    response_model=BlogPostList,
+    response_model=List[BlogPostResponse],
     dependencies=[Depends(regular_user_access)]  # Only require basic access
 )
 async def get_blog_posts(
@@ -60,10 +62,12 @@ async def get_blog_posts(
         total_result = await db.execute(select(func.count()).select_from(BlogPost))
         total = total_result.scalar()
 
-        return {
-            "data": [BlogPostResponse(**post.__dict__) for post in posts],
-            "total": total
-        }
+        # Create response with X-Total-Count header
+        headers = {"X-Total-Count": str(total)}
+        return JSONResponse(
+            content=jsonable_encoder(posts),
+            headers=headers
+        )
     except ProgrammingError as pe:
         logger.error(f"Database query error: {str(pe)}")
         raise HTTPException(
