@@ -26,10 +26,10 @@ export const BlogPostSQLList = () => {
           showQuickJumper: true,
         }}
       >
-        <Table.Column dataIndex="id" title="ID" />
-        <Table.Column dataIndex="title" title="Title" />
-        <Table.Column dataIndex="content" title="Content" />
-        <Table.Column dataIndex="created_at" title="Created At" />
+        <Table.Column dataIndex="id" title="ID" sorter={true} />
+        <Table.Column dataIndex="title" title="Title" sorter={true} />
+        <Table.Column dataIndex="content" title="Content" sorter={true} />
+        <Table.Column dataIndex="created_at" title="Created At" sorter={true} />
       </Table>
     </List>
   );
