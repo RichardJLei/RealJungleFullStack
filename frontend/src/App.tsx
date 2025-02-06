@@ -15,7 +15,7 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
-import dataProvider from "@refinedev/simple-rest";
+import { dataProvider } from "./providers/dataProvider";
 import { App as AntdApp } from "antd";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router";
 import { Header } from "./components/header";
@@ -33,12 +33,11 @@ import {
   CategoryShow,
 } from "./pages/categories";
 import { BlogPostSQLList } from "./pages/blog-post-sql/list";
-import { sqlDataProvider } from "./providers/dataProvider";
 
-// Update data provider configuration
+// Replace the dataProviders object with:
 const dataProviders = {
   default: dataProvider("https://api.fake-rest.refine.dev"),
-  sql: sqlDataProvider,
+  sql: dataProvider(import.meta.env.VITE_API_URL),
 };
 
 function App() {

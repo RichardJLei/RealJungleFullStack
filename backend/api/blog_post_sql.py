@@ -46,24 +46,27 @@ async def get_blog_posts(
     Get paginated blog posts with sorting (async version)
     """
     try:
-        # Proper ORM-style select
-        query = select(BlogPost)
-        
+        # Base query with filters/sorting (no pagination)
+        base_query = select(BlogPost)
         if pagination["order_by"]:
-            query = query.order_by(text(pagination["order_by"]))
+            base_query = base_query.order_by(text(pagination["order_by"]))
         
-        # Execute paginated query
-        result = await db.execute(
-            query.offset(pagination["skip"]).limit(pagination["limit"])
+        # Get total count from base query
+        count_result = await db.execute(
+            select(func.count()).select_from(base_query.alias())
         )
-        posts = result.scalars().all()
-        
-        # Get total count
-        total_result = await db.execute(select(func.count()).select_from(BlogPost))
-        total = total_result.scalar()
+        total = count_result.scalar()
 
-        # Create response with X-Total-Count header
-        headers = {"X-Total-Count": str(total)}
+        print(f"[Backend] Total records calculated: {total}")  # 👈 Add this line
+        headers = {"x-total-count": str(total)}
+
+        # Apply pagination to base query
+        paginated_query = base_query.offset(
+            pagination["skip"]
+        ).limit(pagination["limit"])
+        result = await db.execute(paginated_query)
+        posts = result.scalars().all()
+
         return JSONResponse(
             content=jsonable_encoder(posts),
             headers=headers
@@ -97,4 +100,15 @@ async def test_dependencies(
     admin: bool = Depends(admin_access),
     user: bool = Depends(regular_user_access)
 ):
-    return {"admin_check": admin, "user_check": user} 
+    return {"admin_check": admin, "user_check": user}
+
+@router.get("/{post_id}", response_model=BlogPostResponse)
+async def get_blog_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_async_session)
+):
+    result = await db.execute(select(BlogPost).filter(BlogPost.id == post_id))
+    post = result.scalars().first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post 

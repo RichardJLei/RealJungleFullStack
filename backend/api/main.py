@@ -14,6 +14,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods
     allow_headers=["*"],  # Allow all headers
+    expose_headers=["x-total-count"]  # 👈 Add this line
 )
 
 @app.exception_handler(Exception)
