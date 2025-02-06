@@ -32,6 +32,14 @@ import {
   CategoryList,
   CategoryShow,
 } from "./pages/categories";
+import { BlogPostSQLList } from "./pages/blog-post-sql/list";
+import { sqlDataProvider } from "./providers/dataProvider";
+
+// Update data provider configuration
+const dataProviders = {
+  default: dataProvider("https://api.fake-rest.refine.dev"),
+  sql: sqlDataProvider,
+};
 
 function App() {
   return (
@@ -42,7 +50,7 @@ function App() {
           <AntdApp>
             <DevtoolsProvider>
               <Refine
-                dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
+                dataProvider={dataProviders}
                 notificationProvider={useNotificationProvider}
                 routerProvider={routerBindings}
                 resources={[
@@ -54,6 +62,7 @@ function App() {
                     show: "/blog-posts/show/:id",
                     meta: {
                       canDelete: true,
+                      dataProviderName: "default", // Explicitly use fake API
                     },
                   },
                   {
@@ -64,6 +73,16 @@ function App() {
                     show: "/categories/show/:id",
                     meta: {
                       canDelete: true,
+                      dataProviderName: "default", // Explicitly use fake API
+                    },
+                  },
+                  {
+                    name: "blog-post-sql",
+                    list: "/blog-post-sql",
+                    meta: {
+                      canDelete: false,
+                      dataProviderName: "sql",
+                      label: "Blog Post SQL",
                     },
                   },
                 ]}
@@ -100,6 +119,9 @@ function App() {
                       <Route path="create" element={<CategoryCreate />} />
                       <Route path="edit/:id" element={<CategoryEdit />} />
                       <Route path="show/:id" element={<CategoryShow />} />
+                    </Route>
+                    <Route path="/blog-post-sql">
+                      <Route index element={<BlogPostSQLList />} />
                     </Route>
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>

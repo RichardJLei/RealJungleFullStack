@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { getBlogPostsSQL } from '../services/BlogPostService';
+import { render, waitFor } from '@testing-library/react';
+import { BlogPostSQLList } from '../pages/blog-post-sq/list';
 
 jest.mock('axios');
 
@@ -25,4 +27,15 @@ test('fetches blog posts from SQL backend', async () => {
     })
   );
   expect(result).toEqual(mockPosts);
+});
+
+describe('BlogPostSQL', () => {
+  it('renders table', async () => {
+    const { getByText } = render(<BlogPostSQLList />);
+    
+    await waitFor(() => {
+      expect(getByText('ID')).toBeInTheDocument();
+      expect(getByText('Title')).toBeInTheDocument();
+    });
+  });
 }); 
