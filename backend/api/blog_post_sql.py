@@ -16,6 +16,7 @@ from sqlalchemy.exc import ProgrammingError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from datetime import datetime
+from sqlalchemy.types import String, Text
 
 router = APIRouter(
     prefix="/blog-post-sql",
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 @router.get(
     "/", 
     response_model=List[BlogPostResponse],
-    dependencies=[Depends(regular_user_access)]  # Only require basic access
+    dependencies=[Depends(regular_user_access)]
 )
 async def get_blog_posts(
     pagination: Dict[str, Any] = Depends(get_pagination_params),
@@ -58,6 +59,19 @@ async def get_blog_posts(
                 
             value = f["value"]
             
+            # Type conversion for field types
+            try:
+                field_type = str(field.type)
+                if field_type in ('INTEGER', 'BIGINT'):
+                    value = int(value)
+                elif field_type == 'FLOAT':
+                    value = float(value)
+                elif field_type == 'DATETIME':
+                    value = datetime.fromisoformat(value)
+            except (ValueError, TypeError):
+                logger.warning(f"Type conversion failed for field {f['field']} with value {value}")
+                continue
+            
             # Basic comparisons
             if f["operator"] == "eq":
                 base_query = base_query.where(field == value)
@@ -72,28 +86,23 @@ async def get_blog_posts(
             elif f["operator"] == "gte":
                 base_query = base_query.where(field >= value)
             
-            # String operations
-            elif f["operator"] == "contains":
-                base_query = base_query.where(field.ilike(f"%{value}%"))
-            elif f["operator"] == "ncontains":
-                base_query = base_query.where(~field.ilike(f"%{value}%"))
-            elif f["operator"] == "startswith":
-                base_query = base_query.where(field.ilike(f"{value}%"))
-            elif f["operator"] == "nstartswith":
-                base_query = base_query.where(~field.ilike(f"{value}%"))
-            elif f["operator"] == "endswith":
-                base_query = base_query.where(field.ilike(f"%{value}"))
-            elif f["operator"] == "nendswith":
-                base_query = base_query.where(~field.ilike(f"%{value}"))
-            
-            # Add type conversion for non-string fields
-            try:
-                if str(field.type) in ('INTEGER', 'BIGINT', 'FLOAT'):
-                    value = float(value)
-                elif str(field.type) == 'DATETIME':
-                    value = datetime.fromisoformat(value)
-            except ValueError:
-                continue
+            # String operations - only apply to string fields
+            elif f["operator"] in ["contains", "ncontains", "startswith", "nstartswith", "endswith", "nendswith"]:
+                if not isinstance(field.type, (String, Text)):
+                    continue
+                
+                if f["operator"] == "contains":
+                    base_query = base_query.where(field.ilike(f"%{value}%"))
+                elif f["operator"] == "ncontains":
+                    base_query = base_query.where(~field.ilike(f"%{value}%"))
+                elif f["operator"] == "startswith":
+                    base_query = base_query.where(field.ilike(f"{value}%"))
+                elif f["operator"] == "nstartswith":
+                    base_query = base_query.where(~field.ilike(f"{value}%"))
+                elif f["operator"] == "endswith":
+                    base_query = base_query.where(field.ilike(f"%{value}"))
+                elif f["operator"] == "nendswith":
+                    base_query = base_query.where(~field.ilike(f"%{value}"))
 
         # Apply sorting
         if pagination.get("order_by"):
