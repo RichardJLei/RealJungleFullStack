@@ -88,7 +88,17 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
       ...column,
       title: columnCustomizations[column.key]?.title ?? column.defaultTitle,
       hidden: columnCustomizations[column.key]?.visible === false,
-      sorter: columnCustomizations[column.key]?.sortable ? true : undefined,
+      sorter: columnCustomizations[column.key]?.sortable 
+        ? (a: any, b: any) => {
+            const aValue = Array.isArray(column.dataIndex)
+              ? column.dataIndex.reduce((obj, key) => obj?.[key], a)
+              : a[column.dataIndex];
+            const bValue = Array.isArray(column.dataIndex)
+              ? column.dataIndex.reduce((obj, key) => obj?.[key], b)
+              : b[column.dataIndex];
+            return String(aValue).localeCompare(String(bValue));
+          }
+        : undefined,
     };
 
     // Add filter functionality if enabled

@@ -11,6 +11,17 @@ export const BlogPostSQLList = () => {
     pagination: {
       pageSize: 10,
     },
+    meta: {
+      fields: ["id", "title", "content", "created_at"],
+      sort: {
+        field: "_sort",
+        order: "_order",
+      },
+    },
+    sorters: {
+      mode: "server",
+      initial: [],
+    },
   });
 
   const baseColumns = [
@@ -18,21 +29,25 @@ export const BlogPostSQLList = () => {
       defaultTitle: "ID",
       dataIndex: "id",
       key: "id",
+      fieldName: "id",
     },
     {
       defaultTitle: "Title",
       dataIndex: "title",
       key: "title",
+      fieldName: "title",
     },
     {
       defaultTitle: "Content",
       dataIndex: "content",
       key: "content",
+      fieldName: "content",
     },
     {
       defaultTitle: "Created At",
       dataIndex: "created_at",
       key: "created_at",
+      fieldName: "created_at",
       render: (value: string) => <DateField value={value} />,
     },
   ];

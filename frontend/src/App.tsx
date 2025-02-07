@@ -1,7 +1,7 @@
-import { GitHubBanner, Refine } from "@refinedev/core";
+import { GitHubBanner, Refine, DataProvider } from "@refinedev/core";
 import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-
+import simpleRestDataProvider from "@refinedev/simple-rest";
 import {
   ErrorComponent,
   ThemedLayoutV2,
@@ -15,7 +15,6 @@ import routerBindings, {
   NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
-import { dataProvider } from "./providers/dataProvider";
 import { App as AntdApp } from "antd";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router";
 import { Header } from "./components/header";
@@ -34,10 +33,52 @@ import {
 } from "./pages/categories";
 import { BlogPostSQLList } from "./pages/blog-post-sql/list";
 
-// Replace the dataProviders object with:
+const API_URL = "http://localhost:8000";
+
+// Create base data provider instance
+const baseDataProvider = simpleRestDataProvider(API_URL);
+
+// Extend with custom functionality
+const customDataProvider: DataProvider = {
+  ...baseDataProvider,
+  getList: async ({ resource, pagination, sorters }) => {
+    const { current = 1, pageSize = 10 } = pagination ?? {};
+    
+    // Build query parameters
+    const queryParams = new URLSearchParams();
+    queryParams.append('_page', String(current));
+    queryParams.append('_limit', String(pageSize));
+
+    // Add sort parameters in the correct format
+    if (sorters && sorters.length > 0) {
+      queryParams.append('_sort', sorters[0].field);
+      queryParams.append('_order', sorters[0].order);
+    }
+
+    // Make the API call with the correct URL format
+    const url = `${API_URL}/${resource}/?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    const total = response.headers.get('x-total-count') 
+      ? parseInt(response.headers.get('x-total-count') || '0', 10)
+      : 0;
+
+    return {
+      data,
+      total,
+    };
+  },
+};
+
+// Create data providers object with named providers
 const dataProviders = {
-  default: dataProvider("https://api.fake-rest.refine.dev"),
-  sql: dataProvider(import.meta.env.VITE_API_URL),
+  default: simpleRestDataProvider("https://api.fake-rest.refine.dev"),
+  sql: customDataProvider,
 };
 
 function App() {
@@ -61,7 +102,7 @@ function App() {
                     show: "/blog-posts/show/:id",
                     meta: {
                       canDelete: true,
-                      dataProviderName: "default", // Explicitly use fake API
+                      dataProviderName: "default",
                     },
                   },
                   {
@@ -72,7 +113,7 @@ function App() {
                     show: "/categories/show/:id",
                     meta: {
                       canDelete: true,
-                      dataProviderName: "default", // Explicitly use fake API
+                      dataProviderName: "default",
                     },
                   },
                   {
