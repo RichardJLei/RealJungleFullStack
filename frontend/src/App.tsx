@@ -45,67 +45,84 @@ const customDataProvider: DataProvider = {
     console.log('=== getList START ===');
     console.log('Input params:', { resource, pagination, sorters, filters });
     
-    const { current = 1, pageSize = 10 } = pagination ?? {};
-    
-    // Build base URL
-    let url = `${API_URL}/${resource}/?`;
-    
-    // Add pagination parameters
-    const params = [
-      `_page=${current}`,
-      `_limit=${pageSize}`
-    ];
+    try {
+      const { current = 1, pageSize = 10 } = pagination ?? {};
+      
+      // Build base URL
+      let url = `${API_URL}/${resource}/?`;
+      
+      // Add pagination parameters
+      const params = [
+        `_page=${current}`,
+        `_limit=${pageSize}`
+      ];
 
-    // Add sort parameters
-    if (sorters && sorters.length > 0) {
-      params.push(`_sort=${sorters[0].field}`);
-      params.push(`_order=${sorters[0].order}`);
-    }
+      // Add sort parameters
+      if (sorters && sorters.length > 0) {
+        params.push(`_sort=${sorters[0].field}`);
+        params.push(`_order=${sorters[0].order}`);
+      }
 
-    // Add filter parameters without URL encoding the brackets
-    if (filters && filters.length > 0) {
-      console.log('Processing filters in data provider:', filters);
-      filters.forEach((filter) => {
-        console.log('Processing individual filter:', filter);
-        
-        // Extract the actual filter value from the array if needed
-        let actualFilter = filter;
-        if (Array.isArray(filter.value) && filter.value.length > 0) {
-          actualFilter = filter.value[0];
-        }
-        
-        console.log('Actual filter:', actualFilter);
-        
-        // Use the actual filter values
-        params.push(`filter[field]=${actualFilter.field}`);
-        params.push(`filter[operator]=${actualFilter.operator || 'contains'}`);
-        params.push(`filter[value]=${actualFilter.value}`);
+      // Add filter parameters without URL encoding the brackets
+      if (filters && filters.length > 0) {
+        console.log('Processing filters in data provider:', filters);
+        filters.forEach((filter) => {
+          console.log('Processing individual filter:', filter);
+          
+          // Extract the actual filter value from the array if needed
+          let actualFilter = filter;
+          if (Array.isArray(filter.value) && filter.value.length > 0) {
+            actualFilter = filter.value[0];
+          }
+          
+          console.log('Actual filter:', actualFilter);
+          
+          params.push(`filter[field]=${actualFilter.field}`);
+          params.push(`filter[operator]=${actualFilter.operator || 'contains'}`);
+          params.push(`filter[value]=${actualFilter.value}`);
+        });
+      }
+
+      url += params.join('&');
+      console.log('Final URL:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
+
+      // Handle error responses
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        
+        // Return empty data instead of throwing
+        return {
+          data: [],
+          total: 0
+        };
+      }
+
+      const data = await response.json();
+      const total = response.headers.get('x-total-count') 
+        ? parseInt(response.headers.get('x-total-count') || '0', 10)
+        : 0;
+
+      console.log('Response Received:', { data, total });
+
+      return {
+        data,
+        total,
+      };
+    } catch (error) {
+      // Log the error but return empty data
+      console.error('Error in getList:', error);
+      return {
+        data: [],
+        total: 0
+      };
     }
-
-    // Join all parameters
-    url += params.join('&');
-    
-    console.log('Final URL:', url);
-    console.log('=== getList END ===');
-
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = await response.json();
-    const total = response.headers.get('x-total-count') 
-      ? parseInt(response.headers.get('x-total-count') || '0', 10)
-      : 0;
-
-    console.log('Response Received:', { data, total });
-
-    return {
-      data,
-      total,
-    };
   },
 };
 
