@@ -132,7 +132,7 @@ const dataProviders = {
   sql: customDataProvider,
 };
 
-function App() {
+const App: React.FC = () => {
   return (
     <BrowserRouter>
       <GitHubBanner />
@@ -182,6 +182,9 @@ function App() {
                   warnWhenUnsavedChanges: true,
                   useNewQueryKeys: true,
                   projectId: "HoFcqa-ADDR4h-CmlfIz",
+                  defaultRoutes: {
+                    index: "/blog-post-sql"
+                  }
                 }}
               >
                 <Routes>
@@ -197,7 +200,7 @@ function App() {
                   >
                     <Route
                       index
-                      element={<NavigateToResource resource="blog_posts" />}
+                      element={<NavigateToResource resource="blog-post-sql" />}
                     />
                     <Route path="/blog-posts">
                       <Route index element={<BlogPostList />} />
@@ -229,6 +232,6 @@ function App() {
       </RefineKbarProvider>
     </BrowserRouter>
   );
-}
+};
 
 export default App;
