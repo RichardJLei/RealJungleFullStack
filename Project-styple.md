@@ -2,7 +2,7 @@
 
 ## 1. DRY (Don't Repeat Yourself)
 - **Check**  .Project-structure.md before adding new functions, services, or modules.
-- **Reuse** existing services/modules whenever possible.
+- **Reuse** built-in and existing packages/services/modules whenever possible.
 - **Notify** if unsure whether a service is available.
 - **Create new files only when:**
   - The required business logic is new.
@@ -12,7 +12,6 @@
 ## 2. Documentation Standards
 
 - **Docstrings:** Include docstrings for all functions, classes, and modules.s
-- **README Files:** Provide `README.md` files in major directories explaining their purpose and usage.
 - **API Documentation:** Use **Swagger** for documenting FastAPI REST API endpoints.
 - **Code Comments:** Add meaningful inline comments for complex logic or important sections of the code.
 
