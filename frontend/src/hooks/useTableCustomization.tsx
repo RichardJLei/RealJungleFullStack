@@ -23,8 +23,22 @@ type CustomizationAccumulator = {
   [key: string]: TableCustomization;
 };
 
-// Add search type enum
-type SearchType = 'contains' | 'equals' | 'startsWith' | 'endsWith' | 'regex';
+// Update the search type to match backend operators
+type SearchType = 
+  // Comparison operators
+  | 'eq' 
+  | 'ne' 
+  | 'lt' 
+  | 'lte' 
+  | 'gt' 
+  | 'gte'
+  // Text search operators
+  | 'contains'
+  | 'ncontains'
+  | 'startswith'
+  | 'endswith'
+  | 'nstartswith'
+  | 'nendswith';
 
 interface SearchConfig {
   text: string;
@@ -52,8 +66,8 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
     setSearchedColumns(prev => prev.filter(k => k !== key));
   };
 
-  // Add function to test value against search pattern
-  const matchesSearchPattern = (value: string, pattern: string, type: SearchType): boolean => {
+  // Update the matchesSearchPattern function to handle all operators
+  const matchesSearchPattern = (value: any, pattern: string, type: SearchType): boolean => {
     // Handle null/undefined values
     if (!value) return false;
     if (!pattern) return true;
@@ -61,25 +75,69 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
     const valueStr = String(value).toLowerCase().trim();
     const patternStr = String(pattern).toLowerCase().trim();
 
+    // Try to convert to number for comparison operators
+    const numValue = Number(value);
+    const numPattern = Number(pattern);
+    const isNumeric = !isNaN(numValue) && !isNaN(numPattern);
+
     switch (type) {
+      // Comparison operators
+      case 'eq':
+        return isNumeric ? numValue === numPattern : valueStr === patternStr;
+      case 'ne':
+        return isNumeric ? numValue !== numPattern : valueStr !== patternStr;
+      case 'lt':
+        return isNumeric && numValue < numPattern;
+      case 'lte':
+        return isNumeric && numValue <= numPattern;
+      case 'gt':
+        return isNumeric && numValue > numPattern;
+      case 'gte':
+        return isNumeric && numValue >= numPattern;
+      
+      // Text search operators
       case 'contains':
         return valueStr.includes(patternStr);
-      case 'equals':
-        return valueStr === patternStr;
-      case 'startsWith':
+      case 'ncontains':
+        return !valueStr.includes(patternStr);
+      case 'startswith':
         return valueStr.startsWith(patternStr);
-      case 'endsWith':
+      case 'nstartswith':
+        return !valueStr.startsWith(patternStr);
+      case 'endswith':
         return valueStr.endsWith(patternStr);
-      case 'regex':
-        try {
-          const regex = new RegExp(patternStr, 'i');
-          return regex.test(valueStr);
-        } catch (e) {
-          return valueStr.includes(patternStr);
-        }
+      case 'nendswith':
+        return !valueStr.endsWith(patternStr);
       default:
-        return valueStr.includes(patternStr);
+        return false;
     }
+  };
+
+  // Update the filter dropdown to show appropriate operators based on column type
+  const getOperatorOptions = (column: ColumnDefinition) => {
+    // Determine if the column is numeric
+    const isNumeric = column.dataIndex === 'id' || 
+      typeof column.render === 'function' && column.render.toString().includes('number');
+
+    if (isNumeric) {
+      return [
+        { label: 'Equals', value: 'eq' },
+        { label: 'Not Equals', value: 'ne' },
+        { label: 'Less Than', value: 'lt' },
+        { label: 'Less Than or Equal', value: 'lte' },
+        { label: 'Greater Than', value: 'gt' },
+        { label: 'Greater Than or Equal', value: 'gte' },
+      ];
+    }
+
+    return [
+      { label: 'Contains', value: 'contains' },
+      { label: 'Does Not Contain', value: 'ncontains' },
+      { label: 'Starts With', value: 'startswith' },
+      { label: 'Does Not Start With', value: 'nstartswith' },
+      { label: 'Ends With', value: 'endswith' },
+      { label: 'Does Not End With', value: 'nendswith' },
+    ];
   };
 
   // Process columns with customizations
@@ -105,62 +163,50 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
     if (columnCustomizations[column.key]?.filterable) {
       return {
         ...baseColumn,
-        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
-          const [searchValue, searchType] = selectedKeys;
-          
-          return (
-            <div style={{ padding: 8 }}>
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Select
-                  value={searchType || 'contains'}
-                  onChange={type => setSelectedKeys([searchValue || '', type])}
-                  style={{ width: '100%' }}
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
+          <div style={{ padding: 8 }}>
+            <Space direction="vertical">
+              <Select
+                style={{ width: 200 }}
+                placeholder="Select Operator"
+                value={searchText[column.key]?.type || 'contains'}
+                onChange={(value: SearchType) => 
+                  handleSearch(column.key, searchText[column.key]?.text || '', value)
+                }
+                options={getOperatorOptions(column)}
+              />
+              <Input
+                placeholder={`Search ${column.defaultTitle}`}
+                value={searchText[column.key]?.text}
+                onChange={e => 
+                  handleSearch(column.key, e.target.value, searchText[column.key]?.type || 'contains')
+                }
+                style={{ width: 188, marginBottom: 8, display: 'block' }}
+              />
+              <Space>
+                <Button
+                  type="primary"
+                  onClick={() => confirm()}
+                  icon={<SearchOutlined />}
+                  size="small"
+                  style={{ width: 90 }}
                 >
-                  <Select.Option value="contains">Contains</Select.Option>
-                  <Select.Option value="equals">Equals</Select.Option>
-                  <Select.Option value="startsWith">Starts With</Select.Option>
-                  <Select.Option value="endsWith">Ends With</Select.Option>
-                  <Select.Option value="regex">Regex</Select.Option>
-                </Select>
-                <Input
-                  placeholder={`Search ${baseColumn.title}`}
-                  value={searchValue}
-                  onChange={e => setSelectedKeys([e.target.value, searchType || 'contains'])}
-                  onPressEnter={() => {
-                    confirm();
-                    handleSearch(column.key, searchValue, searchType);
+                  Search
+                </Button>
+                <Button
+                  onClick={() => {
+                    clearFilters?.();
+                    handleReset(column.key);
                   }}
-                  style={{ width: '100%', marginBottom: 8 }}
-                />
-                <Space>
-                  <Button
-                    type="primary"
-                    onClick={() => {
-                      confirm();
-                      handleSearch(column.key, searchValue, searchType);
-                    }}
-                    icon={<SearchOutlined />}
-                    size="small"
-                    style={{ width: 90 }}
-                  >
-                    Search
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      clearFilters?.();
-                      handleReset(column.key);
-                      confirm();
-                    }}
-                    size="small"
-                    style={{ width: 90 }}
-                  >
-                    Reset
-                  </Button>
-                </Space>
+                  size="small"
+                  style={{ width: 90 }}
+                >
+                  Reset
+                </Button>
               </Space>
-            </div>
-          );
-        },
+            </Space>
+          </div>
+        ),
         filterIcon: (filtered: boolean) => (
           <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
         ),
