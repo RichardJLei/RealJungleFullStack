@@ -95,6 +95,11 @@ async def get_blog_posts(
             except ValueError:
                 continue
 
+        # Apply sorting
+        if pagination.get("order_by"):
+            logger.debug(f"Applying sort: {pagination['order_by']}")
+            base_query = base_query.order_by(text(pagination["order_by"]))
+
         # Get total count from base query
         count_result = await db.execute(
             select(func.count()).select_from(base_query.alias())

@@ -1,5 +1,27 @@
 from fastapi import Query, HTTPException
 from typing import Tuple, Optional
+from enum import Enum
+import logging
+import sys
+
+# Set up logging to output to console
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Create console handler with a higher debug level
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+
+# Create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(ch)
+
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
 
 def get_pagination_params(
     start: Optional[int] = Query(None, alias="_start", ge=0, description="Start index"),
@@ -7,7 +29,7 @@ def get_pagination_params(
     page: Optional[int] = Query(None, alias="_page", ge=1, description="Page number"),
     limit: Optional[int] = Query(None, alias="_limit", ge=1, le=100, description="Items per page"),
     sort: Optional[str] = Query(None, alias="_sort", description="Sort field(s)"),
-    order: Optional[str] = Query(None, alias="_order", description="Sort order (asc/desc)")
+    order: Optional[SortOrder] = Query(None, alias="_order", description="Sort order (asc/desc)")
 ) -> dict:
     """
     Reusable pagination parameters supporting both index-based and page-based pagination
@@ -19,6 +41,8 @@ def get_pagination_params(
     Returns:
         dict: Contains 'skip', 'limit', and 'order_by' values
     """
+    logger.info(f"Received pagination request - page: {page}, limit: {limit}, sort: {sort}, order: {order}")
+    
     # Initialize default values
     skip = 0
     items_limit = 10
@@ -27,6 +51,7 @@ def get_pagination_params(
     if page is not None and limit is not None:
         skip = (page - 1) * limit
         items_limit = limit
+        logger.debug(f"Using page-based pagination: page={page}, limit={limit}")
     # Handle start/end pagination
     elif start is not None and end is not None:
         if end <= start:
@@ -36,12 +61,24 @@ def get_pagination_params(
             )
         skip = start
         items_limit = end - start
+        logger.debug(f"Using start/end pagination: start={start}, end={end}")
 
-    return {
+    # Handle sorting
+    order_by = None
+    if sort and order:
+        # For SQL Alchemy: field_name DESC/ASC
+        order_direction = "DESC" if order == SortOrder.DESC else "ASC"
+        order_by = f"{sort} {order_direction}"
+        logger.info(f"Sorting parameters - Field: {sort}, Direction: {order_direction}")
+        logger.info(f"Generated order_by clause: {order_by}")
+
+    result = {
         "skip": skip,
         "limit": items_limit,
-        "order_by": f"{sort} {order.lower()}" if sort and order else None
+        "order_by": order_by
     }
+    logger.info(f"Final pagination parameters: {result}")
+    return result
 
 def pagination_params(
     skip: int = Query(0, ge=0),
