@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from datetime import datetime
 from sqlalchemy.types import String, Text
+from utils.query_builder import QueryBuilder
 
 router = APIRouter(
     prefix="/blog-post-sql",
@@ -45,104 +46,25 @@ async def get_blog_posts(
     filters: List[Dict] = Depends(refine_filter_parser),
     db: AsyncSession = Depends(get_async_session)
 ):
-    """
-    Get paginated blog posts with sorting (async version)
-    """
+    """Get paginated blog posts with sorting"""
     try:
-        base_query = select(BlogPost)
+        query_builder = QueryBuilder(BlogPost)
         
-        # Apply filters
-        for f in filters:
-            field = getattr(BlogPost, f["field"], None)
-            if not field:
-                continue
-                
-            value = f["value"]
-            
-            # Type conversion for field types
-            try:
-                field_type = str(field.type)
-                if field_type in ('INTEGER', 'BIGINT'):
-                    value = int(value)
-                elif field_type == 'FLOAT':
-                    value = float(value)
-                elif field_type == 'DATETIME':
-                    value = datetime.fromisoformat(value)
-            except (ValueError, TypeError):
-                logger.warning(f"Type conversion failed for field {f['field']} with value {value}")
-                continue
-            
-            # Basic comparisons
-            if f["operator"] == "eq":
-                base_query = base_query.where(field == value)
-            elif f["operator"] == "ne":
-                base_query = base_query.where(field != value)
-            elif f["operator"] == "lt":
-                base_query = base_query.where(field < value)
-            elif f["operator"] == "lte":
-                base_query = base_query.where(field <= value)
-            elif f["operator"] == "gt":
-                base_query = base_query.where(field > value)
-            elif f["operator"] == "gte":
-                base_query = base_query.where(field >= value)
-            
-            # String operations - only apply to string fields
-            elif f["operator"] in ["contains", "ncontains", "startswith", "nstartswith", "endswith", "nendswith"]:
-                if not isinstance(field.type, (String, Text)):
-                    continue
-                
-                if f["operator"] == "contains":
-                    base_query = base_query.where(field.ilike(f"%{value}%"))
-                elif f["operator"] == "ncontains":
-                    base_query = base_query.where(~field.ilike(f"%{value}%"))
-                elif f["operator"] == "startswith":
-                    base_query = base_query.where(field.ilike(f"{value}%"))
-                elif f["operator"] == "nstartswith":
-                    base_query = base_query.where(~field.ilike(f"{value}%"))
-                elif f["operator"] == "endswith":
-                    base_query = base_query.where(field.ilike(f"%{value}"))
-                elif f["operator"] == "nendswith":
-                    base_query = base_query.where(~field.ilike(f"%{value}"))
+        # Build query with all conditions
+        posts, total = await (query_builder
+            .apply_filters(filters)
+            .apply_sorting(pagination.get("order_by"))
+            .apply_pagination(pagination["skip"], pagination["limit"])
+            .execute(db))
 
-        # Apply sorting
-        if pagination.get("order_by"):
-            logger.debug(f"Applying sort: {pagination['order_by']}")
-            base_query = base_query.order_by(text(pagination["order_by"]))
-
-        # Get total count from base query
-        count_result = await db.execute(
-            select(func.count()).select_from(base_query.alias())
-        )
-        total = count_result.scalar()
-
-        print(f"[Backend] Total records calculated: {total}")  # 👈 Add this line
         headers = {"x-total-count": str(total)}
-
-        # Apply pagination to base query
-        paginated_query = base_query.offset(
-            pagination["skip"]
-        ).limit(pagination["limit"])
-        result = await db.execute(paginated_query)
-        posts = result.scalars().all()
-
+        
         return JSONResponse(
             content=jsonable_encoder(posts),
             headers=headers
         )
-    except ProgrammingError as pe:
-        logger.error(f"Database query error: {str(pe)}")
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": {
-                    "message": "Invalid query parameters",
-                    "statusCode": 400,
-                    "errors": [str(pe)]
-                }
-            }
-        )
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error fetching blog posts: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail={
