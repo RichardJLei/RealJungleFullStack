@@ -23,6 +23,13 @@ frontend/src/
 ├── providers/
 │   └── dataProvider.ts - React-Admin data provider implementation
 │
+├── hooks/
+│   └── useTableCustomization.tsx - Custom hook for table features
+│
+├── customTable Sample/
+│   ├── useTableCustomization.tsx - Table customization example
+│   └── list.tsx - Sample implementation of custom table
+│
 └── pages/
     └── blog-post-sql/
         └── list.tsx - Blog post listing UI with filtering/pagination
@@ -41,4 +48,5 @@ docs/
 ## Critical Dependencies
 - `pagination.py`: Central parameter validation
 - `dataProvider.ts`: Frontend API communication layer
+- `useTableCustomization.tsx`: Table feature customization
 - `Spec-Pagination-Parameters.md`: Frontend/backend contract

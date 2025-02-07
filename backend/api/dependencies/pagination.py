@@ -2,26 +2,44 @@ from fastapi import Query, HTTPException
 from typing import Tuple, Optional
 
 def get_pagination_params(
-    start: int = Query(0, alias="_start", ge=0, description="Start index"),
-    end: int = Query(10, alias="_end", ge=1, description="End index"),
+    start: Optional[int] = Query(None, alias="_start", ge=0, description="Start index"),
+    end: Optional[int] = Query(None, alias="_end", ge=1, description="End index"),
+    page: Optional[int] = Query(None, alias="_page", ge=1, description="Page number"),
+    limit: Optional[int] = Query(None, alias="_limit", ge=1, le=100, description="Items per page"),
     sort: Optional[str] = Query(None, alias="_sort", description="Sort field(s)"),
     order: Optional[str] = Query(None, alias="_order", description="Sort order (asc/desc)")
 ) -> dict:
     """
-    Reusable pagination parameters for Refine-compatible endpoints
+    Reusable pagination parameters supporting both index-based and page-based pagination
+    
+    Supports two pagination styles:
+    1. start/end: Using _start and _end parameters
+    2. page/limit: Using _page and _limit parameters
     
     Returns:
         dict: Contains 'skip', 'limit', and 'order_by' values
     """
-    if end <= start:
-        raise HTTPException(
-            status_code=422,
-            detail="End index must be greater than start index"
-        )
-    
+    # Initialize default values
+    skip = 0
+    items_limit = 10
+
+    # Handle page-based pagination
+    if page is not None and limit is not None:
+        skip = (page - 1) * limit
+        items_limit = limit
+    # Handle start/end pagination
+    elif start is not None and end is not None:
+        if end <= start:
+            raise HTTPException(
+                status_code=422,
+                detail="End index must be greater than start index"
+            )
+        skip = start
+        items_limit = end - start
+
     return {
-        "skip": start,
-        "limit": end - start,  # Calculate actual page size
+        "skip": skip,
+        "limit": items_limit,
         "order_by": f"{sort} {order.lower()}" if sort and order else None
     }
 
