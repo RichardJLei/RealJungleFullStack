@@ -71,8 +71,24 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
   };
 
   const handleReset = (key: string) => {
-    setSearchText(prev => ({ ...prev, [key]: { text: '', type: 'contains' } }));
+    console.log('=== handleReset START ===');
+    
+    // Clear the search text state
+    setSearchText(prev => {
+      const newState = { ...prev };
+      delete newState[key]; // Remove the filter completely instead of setting empty values
+      return newState;
+    });
+    
+    // Remove from searched columns
     setSearchedColumns(prev => prev.filter(k => k !== key));
+    
+    // Create an empty filter value to trigger table update
+    return [{
+      field: '',
+      operator: '',
+      value: ''
+    }];
   };
 
   // Update the filter dropdown to show appropriate operators based on column type
@@ -181,8 +197,10 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
                   <Button
                     onClick={() => {
                       console.log('Reset Button Clicked');
+                      const emptyFilter = handleReset(column.key);
+                      setSelectedKeys(emptyFilter);
                       clearFilters?.();
-                      handleReset(column.key);
+                      confirm(); // Trigger the table update
                     }}
                     size="small"
                     style={{ width: 90 }}
