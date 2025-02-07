@@ -11,6 +11,43 @@ export const BlogPostSQLList = () => {
     pagination: {
       pageSize: 10,
     },
+    filters: {
+      mode: "server",
+      defaultBehavior: "replace",
+    },
+    onSearch: (params) => {
+      console.log('=== onSearch START ===');
+      console.log('Raw params:', params);
+      console.log('Raw filters:', params.filters);
+
+      // Transform the filters
+      const filters = params.filters?.map(filter => {
+        console.log('Processing filter:', filter);
+        
+        // Handle the case where filter.value is an array containing our filter object
+        if (Array.isArray(filter.value) && filter.value.length > 0) {
+          const actualFilter = filter.value[0];
+          console.log('Found array filter value:', actualFilter);
+          return actualFilter;
+        }
+        
+        // Handle the case where filter is already in the correct format
+        if (filter.field && filter.operator && filter.value) {
+          console.log('Found direct filter:', filter);
+          return filter;
+        }
+        
+        console.log('Unexpected filter format:', filter);
+        return {
+          field: filter.field,
+          operator: 'contains',
+          value: filter.value
+        };
+      });
+
+      console.log('Final transformed filters:', filters);
+      return { filters };
+    },
     meta: {
       fields: ["id", "title", "content", "created_at"],
       sort: {
@@ -23,6 +60,8 @@ export const BlogPostSQLList = () => {
       initial: [],
     },
   });
+
+  console.log('Table Props:', tableProps);
 
   const baseColumns = [
     {

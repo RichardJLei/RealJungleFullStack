@@ -55,7 +55,16 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
   const [searchedColumns, setSearchedColumns] = useState<string[]>([]);
 
   const handleSearch = (key: string, value: string, type: SearchType) => {
-    setSearchText(prev => ({ ...prev, [key]: { text: value, type } }));
+    console.log('=== handleSearch START ===');
+    console.log('Input params:', { key, value, type });
+    console.log('Current searchText:', searchText);
+    
+    setSearchText(prev => {
+      const newState = { ...prev, [key]: { text: value, type } };
+      console.log('New searchText state:', newState);
+      return newState;
+    });
+    console.log('=== handleSearch END ===');
     setSearchedColumns(prev => 
       value ? [...new Set([...prev, key])] : prev.filter(k => k !== key)
     );
@@ -64,53 +73,6 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
   const handleReset = (key: string) => {
     setSearchText(prev => ({ ...prev, [key]: { text: '', type: 'contains' } }));
     setSearchedColumns(prev => prev.filter(k => k !== key));
-  };
-
-  // Update the matchesSearchPattern function to handle all operators
-  const matchesSearchPattern = (value: any, pattern: string, type: SearchType): boolean => {
-    // Handle null/undefined values
-    if (!value) return false;
-    if (!pattern) return true;
-
-    const valueStr = String(value).toLowerCase().trim();
-    const patternStr = String(pattern).toLowerCase().trim();
-
-    // Try to convert to number for comparison operators
-    const numValue = Number(value);
-    const numPattern = Number(pattern);
-    const isNumeric = !isNaN(numValue) && !isNaN(numPattern);
-
-    switch (type) {
-      // Comparison operators
-      case 'eq':
-        return isNumeric ? numValue === numPattern : valueStr === patternStr;
-      case 'ne':
-        return isNumeric ? numValue !== numPattern : valueStr !== patternStr;
-      case 'lt':
-        return isNumeric && numValue < numPattern;
-      case 'lte':
-        return isNumeric && numValue <= numPattern;
-      case 'gt':
-        return isNumeric && numValue > numPattern;
-      case 'gte':
-        return isNumeric && numValue >= numPattern;
-      
-      // Text search operators
-      case 'contains':
-        return valueStr.includes(patternStr);
-      case 'ncontains':
-        return !valueStr.includes(patternStr);
-      case 'startswith':
-        return valueStr.startsWith(patternStr);
-      case 'nstartswith':
-        return !valueStr.startsWith(patternStr);
-      case 'endswith':
-        return valueStr.endsWith(patternStr);
-      case 'nendswith':
-        return !valueStr.endsWith(patternStr);
-      default:
-        return false;
-    }
   };
 
   // Update the filter dropdown to show appropriate operators based on column type
@@ -146,86 +108,102 @@ export const useTableCustomization = (baseColumns: ColumnDefinition[]) => {
       ...column,
       title: columnCustomizations[column.key]?.title ?? column.defaultTitle,
       hidden: columnCustomizations[column.key]?.visible === false,
-      sorter: columnCustomizations[column.key]?.sortable 
-        ? (a: any, b: any) => {
-            const aValue = Array.isArray(column.dataIndex)
-              ? column.dataIndex.reduce((obj, key) => obj?.[key], a)
-              : a[column.dataIndex];
-            const bValue = Array.isArray(column.dataIndex)
-              ? column.dataIndex.reduce((obj, key) => obj?.[key], b)
-              : b[column.dataIndex];
-            return String(aValue).localeCompare(String(bValue));
-          }
-        : undefined,
+      sorter: columnCustomizations[column.key]?.sortable ? true : undefined,
     };
 
     // Add filter functionality if enabled
     if (columnCustomizations[column.key]?.filterable) {
       return {
         ...baseColumn,
-        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
-          <div style={{ padding: 8 }}>
-            <Space direction="vertical">
-              <Select
-                style={{ width: 200 }}
-                placeholder="Select Operator"
-                value={searchText[column.key]?.type || 'contains'}
-                onChange={(value: SearchType) => 
-                  handleSearch(column.key, searchText[column.key]?.text || '', value)
-                }
-                options={getOperatorOptions(column)}
-              />
-              <Input
-                placeholder={`Search ${column.defaultTitle}`}
-                value={searchText[column.key]?.text}
-                onChange={e => 
-                  handleSearch(column.key, e.target.value, searchText[column.key]?.type || 'contains')
-                }
-                style={{ width: 188, marginBottom: 8, display: 'block' }}
-              />
-              <Space>
-                <Button
-                  type="primary"
-                  onClick={() => confirm()}
-                  icon={<SearchOutlined />}
-                  size="small"
-                  style={{ width: 90 }}
-                >
-                  Search
-                </Button>
-                <Button
-                  onClick={() => {
-                    clearFilters?.();
-                    handleReset(column.key);
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => {
+          console.log('=== filterDropdown RENDER ===');
+          console.log('Props:', { selectedKeys, searchText: searchText[column.key], columnKey: column.key });
+          console.log('Filter Dropdown Rendered', { 
+            selectedKeys,
+            currentSearchText: searchText[column.key],
+            columnKey: column.key 
+          });
+
+          const handleConfirm = () => {
+            console.log('=== handleConfirm START ===');
+            console.log('Current searchText:', searchText);
+            console.log('Current column:', column);
+            
+            const filterValue = {
+              field: column.dataIndex,
+              operator: searchText[column.key]?.type || 'contains',
+              value: searchText[column.key]?.text || ''
+            };
+            console.log('Created filterValue:', filterValue);
+            console.log('Setting selectedKeys with:', [filterValue]);
+            
+            // Ensure we're setting the filter value directly
+            setSelectedKeys([filterValue]);
+            console.log('=== handleConfirm END ===');
+            confirm();
+          };
+
+          return (
+            <div style={{ padding: 8 }}>
+              <Space direction="vertical">
+                <Select
+                  style={{ width: 200 }}
+                  placeholder="Select Operator"
+                  value={searchText[column.key]?.type || 'contains'}
+                  onChange={(value: SearchType) => {
+                    console.log('Operator Changed', { value, column: column.key });
+                    const newSearchText = searchText[column.key]?.text || '';
+                    handleSearch(column.key, newSearchText, value);
                   }}
-                  size="small"
-                  style={{ width: 90 }}
-                >
-                  Reset
-                </Button>
+                  options={getOperatorOptions(column)}
+                />
+                <Input
+                  placeholder={`Search ${column.defaultTitle}`}
+                  value={searchText[column.key]?.text}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    console.log('Input Changed', { newValue, column: column.key });
+                    handleSearch(column.key, newValue, searchText[column.key]?.type || 'contains');
+                  }}
+                  onPressEnter={handleConfirm}
+                  style={{ width: 188, marginBottom: 8, display: 'block' }}
+                />
+                <Space>
+                  <Button
+                    type="primary"
+                    onClick={handleConfirm}
+                    icon={<SearchOutlined />}
+                    size="small"
+                    style={{ width: 90 }}
+                  >
+                    Search
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      console.log('Reset Button Clicked');
+                      clearFilters?.();
+                      handleReset(column.key);
+                    }}
+                    size="small"
+                    style={{ width: 90 }}
+                  >
+                    Reset
+                  </Button>
+                </Space>
               </Space>
-            </Space>
-          </div>
-        ),
+            </div>
+          );
+        },
         filterIcon: (filtered: boolean) => (
           <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
         ),
-        onFilter: (value: string, record: any) => {
-          const fieldValue = Array.isArray(column.dataIndex)
-            ? column.dataIndex.reduce((obj, key) => obj?.[key], record)
-            : record[column.dataIndex];
-
-          // Get the search type from selectedKeys
-          const searchConfig = searchText[column.key] || { text: value, type: 'contains' };
-          
-          return matchesSearchPattern(
-            fieldValue,
-            searchConfig.text,
-            searchConfig.type
-          );
-        },
+        filtered: searchedColumns.includes(column.key),
         filteredValue: searchedColumns.includes(column.key) 
-          ? [searchText[column.key].text, searchText[column.key].type] 
+          ? [{
+              field: column.dataIndex,
+              operator: searchText[column.key]?.type || 'contains',
+              value: searchText[column.key]?.text || ''
+            }]
           : null,
       } as ColumnType<any>;
     }

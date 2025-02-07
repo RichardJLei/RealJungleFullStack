@@ -41,22 +41,54 @@ const baseDataProvider = simpleRestDataProvider(API_URL);
 // Extend with custom functionality
 const customDataProvider: DataProvider = {
   ...baseDataProvider,
-  getList: async ({ resource, pagination, sorters }) => {
+  getList: async ({ resource, pagination, sorters, filters }) => {
+    console.log('=== getList START ===');
+    console.log('Input params:', { resource, pagination, sorters, filters });
+    
     const { current = 1, pageSize = 10 } = pagination ?? {};
     
-    // Build query parameters
-    const queryParams = new URLSearchParams();
-    queryParams.append('_page', String(current));
-    queryParams.append('_limit', String(pageSize));
+    // Build base URL
+    let url = `${API_URL}/${resource}/?`;
+    
+    // Add pagination parameters
+    const params = [
+      `_page=${current}`,
+      `_limit=${pageSize}`
+    ];
 
-    // Add sort parameters in the correct format
+    // Add sort parameters
     if (sorters && sorters.length > 0) {
-      queryParams.append('_sort', sorters[0].field);
-      queryParams.append('_order', sorters[0].order);
+      params.push(`_sort=${sorters[0].field}`);
+      params.push(`_order=${sorters[0].order}`);
     }
 
-    // Make the API call with the correct URL format
-    const url = `${API_URL}/${resource}/?${queryParams.toString()}`;
+    // Add filter parameters without URL encoding the brackets
+    if (filters && filters.length > 0) {
+      console.log('Processing filters in data provider:', filters);
+      filters.forEach((filter) => {
+        console.log('Processing individual filter:', filter);
+        
+        // Extract the actual filter value from the array if needed
+        let actualFilter = filter;
+        if (Array.isArray(filter.value) && filter.value.length > 0) {
+          actualFilter = filter.value[0];
+        }
+        
+        console.log('Actual filter:', actualFilter);
+        
+        // Use the actual filter values
+        params.push(`filter[field]=${actualFilter.field}`);
+        params.push(`filter[operator]=${actualFilter.operator || 'contains'}`);
+        params.push(`filter[value]=${actualFilter.value}`);
+      });
+    }
+
+    // Join all parameters
+    url += params.join('&');
+    
+    console.log('Final URL:', url);
+    console.log('=== getList END ===');
+
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -67,6 +99,8 @@ const customDataProvider: DataProvider = {
     const total = response.headers.get('x-total-count') 
       ? parseInt(response.headers.get('x-total-count') || '0', 10)
       : 0;
+
+    console.log('Response Received:', { data, total });
 
     return {
       data,
